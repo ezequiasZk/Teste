@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Coração de Areia para Anne ❤️</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcReA3wofzPQ5ewga9X_fSDAHJMNVoNDjzJzxg0GQ12ehIq1TdYJuMOf7Mcw&s=10') no-repeat center center fixed;
+    background-size: cover;
+    font-family: Arial, sans-serif;
+    color: white;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: transparent;
+    z-index: 1;
+  }
+  #messageBox {
+    position: absolute;
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(30,30,30,0.85);
+    padding: 30px 40px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 1.7em;
+    color: white;
+    z-index: 10;
+    user-select: none;
+    display: none;
+  }
+  #messageBox button {
+    margin: 15px 20px 0;
+    padding: 12px 30px;
+    font-size: 1.2em;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  #yesBtn { background-color: #28a745; color: white; }
+  #noBtn { background-color: #dc3545; color: white; }
+
+  #audioBG {
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<audio id="audioBG" autoplay loop preload="auto" src="https://www.bensound.com/bensound-music/bensound-sunny.mp3"></audio>
+
+<canvas id="canvas"></canvas>
+
+<div id="messageBox">
+  <div>Anne, você gostou do presente?</div>
+  <button id="yesBtn">Sim</button>
+  <button id="noBtn">Não</button>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let W = canvas.width = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+
+  const gravity = 0.12, binSize = 4;
+  let ground = [];
+  let particles = [], heartParticles = [], textParticles = [], funRain = [];
+  let butterflies = [], critters = [], birds = [], mice = [], cats = [], dragonflies = [], fireflies = [];
+  let fireworks = [];
+
+  let phase = 'forming', finalState = null, msgTimeout, delayMsg;
+  const cx = W/2, cy = H/2;
+  const sand = '#e7d9c4', heartBase = 350;
+  const offc = document.createElement('canvas'), offCtx = offc.getContext('2d');
+
+  function resetGround() { ground = new Array(Math.ceil(W/binSize)).fill(H-2); }
+  
+  function heartCoords(t){
+    const s=10, x=16*Math.sin(t)**3;
+    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+    return {x:cx+x*s, y:cy-y*s-60};
+  }
+
+  function init(){
+    particles=[]; heartParticles=[]; textParticles=[]; funRain=[]; butterflies=[]; critters=[]; birds=[]; mice=[]; cats=[]; dragonflies=[]; fireflies=[]; fireworks=[];
+    resetGround();
+
+    // Partículas do coração
+    for(let i=0;i<500;i++){
+      const t=i/500*Math.PI*2, tgt=heartCoords(t);
+      const p={
+        x:cx+(Math.random()-0.5)*W*1.5,
+        y:cy+(Math.random()-0.5)*H*1.5,
+        vx:0, vy:0,
+        target:tgt,
+        stuck:false,
+        color:`hsl(${heartBase+Math.random()*20},90%,60%)`,
+        size:5
+      };
+      particles.push(p);
+      heartParticles.push(p);
+    }
+
+    // Texto de partículas
+    const text="Feito só para você,Anne!";
+    offc.width=W; offc.height=H;
+    offCtx.clearRect(0,0,W,H);
+    offCtx.font="bold 90px Arial";
+    offCtx.textAlign="center";
+    offCtx.fillStyle="white";
+    offCtx.fillText(text,cx,cy+180);
+    const data = offCtx.getImageData(0,0,W,H).data;
+    for(let y=0;y<H;y+=5){
+      for(let x=0;x<W;x+=5){
+        if(data[(y*W+x)*4+3]>150){
+          const p={
+            x:Math.random()*W,
+            y:Math.random()*H,
+            vx:0,
+            vy:0,
+            target:{x,y},
+            stuck:false,
+            color:sand,
+            size:6
+          };
+          particles.push(p);
+          textParticles.push(p);
+        }
+      }
+    }
+
+    // Critters (ratos)
+    for(let i=0;i<8;i++){
+      mice.push({
+        x:Math.random()*W,
+        y:H-20-Math.random()*20,
+        t:Math.random()*Math.PI*2
+      });
+    }
+    // Passarinhos voando
+    for(let i=0;i<10;i++){
+      birds.push({
+        x:Math.random()*W,
+        y:Math.random()*H*0.5,
+        angle:Math.random()*Math.PI*2,
+        speed:0.02+Math.random()*0.02,
+        size:12+Math.random()*4,
+        hue:100+Math.random()*50
+      });
+    }
+
+    // Gatinhos andando no chão
+    for(let i=0;i<6;i++){
+      cats.push({
+        x:Math.random()*W,
+        y:H-40,
+        speed:0.7 + Math.random()*0.6,
+        direction: Math.random() < 0.5 ? 1 : -1,
+        size:15 + Math.random()*8,
+        step: Math.random()*1000
+      });
+    }
+
+    // Libélulas voando suavemente
+    for(let i=0;i<10;i++){
+      dragonflies.push({
+        x:Math.random()*W,
+        y:Math.random()*H*0.6,
+        angle:Math.random()*Math.PI*2,
+        speed:0.03 + Math.random()*0.03,
+        size:8 + Math.random()*4,
+        hue: 160 + Math.random()*40,
+        phase: Math.random()*Math.PI*2
+      });
+    }
+
+    // Vaga-lumes piscando
+    for(let i=0;i<15;i++){
+      fireflies.push({
+        x:Math.random()*W,
+        y:Math.random()*H,
+        size:5 + Math.random()*3,
+        brightness: Math.random(),
+        flickerSpeed: 0.02 + Math.random()*0.03
+      });
+    }
+  }
+
+  function updatePhysics(p){
+    p.vy+=gravity;
+    p.vx*=0.99;
+    p.vy*=0.99;
+    p.x+=p.vx;
+    p.y+=p.vy;
+    const bi = Math.max(0, Math.min(ground.length-1, Math.floor(p.x/binSize)));
+    if(p.y>=ground[bi]){
+      p.y=ground[bi];
+      p.vx=p.vy=0;
+      p.stuck=true;
+      ground[bi]-=3;
+    }
+  }
+
+  function createButterflies(n){
+    for(let i=0;i<n;i++){
+      butterflies.push({
+        x:Math.random()*W,
+        y:Math.random()*H*0.5,
+        angle:Math.random()*Math.PI*2,
+        speed:0.02+Math.random()*0.02,
+        size:12+Math.random()*4,
+        hue:100+Math.random()*50
+      });
+    }
+  }
+
+  // Função para criar fogos de artifício
+  function createFireworks(){
+    // Cada fogo é um grupo de partículas que explodem a partir de um ponto
+    const fireworkCount = 5; // Quantos fogos por disparo
+    for(let i=0; i<fireworkCount; i++){
+      const fx = Math.random() * W * 0.8 + W*0.1;
+      const fy = Math.random() * H * 0.5 + H*0.1;
+      const colors = [
+        'hsl(0, 100%, 70%)',
+        'hsl(30, 100%, 70%)',
+        'hsl(60, 100%, 70%)',
+        'hsl(120, 100%, 70%)',
+        'hsl(180, 100%, 70%)',
+        'hsl(240, 100%, 70%)',
+        'hsl(300, 100%, 70%)',
+      ];
+      const color = colors[Math.floor(Math.random()*colors.length)];
+      const firework = {
+        x: fx,
+        y: fy,
+        particles: [],
+        alive: true
+      };
+      const particleCount = 30 + Math.floor(Math.random()*20);
+      for(let j=0; j<particleCount; j++){
+        const angle = Math.random()*2*Math.PI;
+        const speed = Math.random()*5 + 2;
+        firework.particles.push({
+          x: fx,
+          y: fy,
+          vx: Math.cos(angle)*speed,
+          vy: Math.sin(angle)*speed,
+          alpha: 1,
+          size: 3 + Math.random()*2,
+          color: color,
+          decay: 0.015 + Math.random()*0.015
+        });
+      }
+      fireworks.push(firework);
+    }
+  }
+
+  function updateFireworks(){
+    fireworks.forEach((fw, idx) => {
+      fw.particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.05; // gravidade leve
+        p.alpha -= p.decay;
+        if(p.alpha < 0) p.alpha = 0;
+      });
+      // Remove partículas mortas
+      fw.particles = fw.particles.filter(p => p.alpha > 0);
+      // Se todas partículas morreram, remove o fogo
+      if(fw.particles.length === 0){
+        fw.alive = false;
+      }
+    });
+    fireworks = fireworks.filter(fw => fw.alive);
+  }
+
+  function drawFireworks(){
+    fireworks.forEach(fw => {
+      fw.particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, 2*Math.PI);
+        ctx.fillStyle = `rgba(${hexToRgb(p.color)},${p.alpha})`;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = p.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+    });
+  }
+
+  // Auxiliar para converter hsl para rgb (string)
+  function hexToRgb(hsl){
+    // Usar canvas temporário para converter HSL para RGB
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.fillStyle = hsl;
+    const color = tempCtx.fillStyle;
+    // color estará em formato rgb(r,g,b)
+    return color.replace(/[^\d,]/g, '');
+  }
+
+  function startYes(){
+    finalState='liked';
+    phase='ended';
+    heartParticles.forEach(p=>{
+      p.stuck=true;
+      p.vx=p.vy=0;
+      p.target=null;
+    });
+    createButterflies(14);
+    createFireworks(); // cria fogos assim que clicar em sim
+  }
+
+  function showMsg(){ document.getElementById('messageBox').style.display='block'; }
+
+  let heartbeat=0, beatTime=0;
+
+  function animate(){
+    ctx.clearRect(0,0,W,H);
+    // lua e estrelas - estrelas maiores e mais nítidas
+    ctx.fillStyle="#444";
+    ctx.beginPath();
+    ctx.arc(80,80,60,0,2*Math.PI);
+    ctx.fill();
+    for(let i=0;i<50;i++){
+      const s=Math.sin((Date.now()+i*100)%2000/2000*2*Math.PI)*0.7+0.7;
+      ctx.beginPath();
+      ctx.arc(50+i*15,30+(i%5)*20,3.5+s,0,2*Math.PI);
+      ctx.fillStyle=`rgba(255,255,255,${s})`;
+      ctx.fill();
+    }
+
+    // Partículas principais
+    particles.forEach(p=>{
+      if(phase==='forming' && p.target){
+        const dx=p.target.x-p.x, dy=p.target.y-p.y;
+        p.vx+=dx*0.02;
+        p.vy+=dy*0.02;
+        p.vx*=0.75;
+        p.vy*=0.75;
+        p.x+=p.vx;
+        p.y+=p.vy;
+        if(Math.abs(dx)<1&&Math.abs(dy)<1){
+          p.x=p.target.x;
+          p.y=p.target.y;
+          p.stuck=true;
+        }
+      } else if(phase==='fall' && !p.stuck && finalState!=='liked'){
+        updatePhysics(p);
+      }
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.size,0,2*Math.PI);
+      ctx.fillStyle=p.color;
+      ctx.fill();
+    });
+
+    if(phase==='ended' && finalState==='liked'){
+      if(Math.random()<0.15) funRain.push({
+        x:Math.random()*W,
+        y:-10,
+        vx:(Math.random()-0.5)*0.5,
+        vy:Math.random()*1.2+0.7,
+        size:4+Math.random()*2,
+        color:`hsl(${heartBase+Math.random()*40},90%,65%)`
+      });
+      funRain = funRain.filter(p=>{
+        updatePhysics(p);
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size,0,2*Math.PI);
+        ctx.fillStyle=p.color;
+        ctx.fill();
+        return p.y<H+10;
+      });
+
+      // Borboletas
+      butterflies.forEach(b=>{
+        b.angle+=b.speed;
+        const x=b.x+Math.sin(b.angle)*30;
+        const y=b.y+Math.cos(b.angle*2)*15;
+        ctx.beginPath();
+        ctx.arc(x,y,b.size,0,2*Math.PI);
+        ctx.fillStyle=`hsl(${b.hue},80%,70%)`;
+        ctx.fill();
+      });
+
+      // Pulsação coração batimento pequeno (70 bpm)
+      beatTime+=0.016;
+      const bpm = 70;
+      const beatFrequency = bpm / 60;
+      const scale = 1 + 0.03 * Math.sin(2 * Math.PI * beatFrequency * beatTime);
+      heartParticles.forEach(p=>{
+        const dx = p.x-cx;
+        const dy = p.y-(cy-60);
+        p.x = cx + dx * scale;
+        p.y = cy-60 + dy * scale;
+      });
+
+      // Atualiza e desenha fogos
+      updateFireworks();
+      drawFireworks();
+    }
+
+    // Ratinhos andando maiores
+    mice.forEach(m=>{
+      m.x += Math.sin(m.t)*1.2+1;
+      m.t += 0.015;
+      ctx.fillStyle='#aaa';
+      ctx.beginPath();
+      ctx.arc(m.x,m.y,10,0,2*Math.PI);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(m.x+7,m.y,6,0,2*Math.PI);
+      ctx.fill();
+      if(m.x>W+15) m.x=-15;
+    });
+
+    // Passarinhos voando maiores
+    birds.forEach(b=>{
+      b.angle+=b.speed;
+      const x=b.x+Math.sin(b.angle)*40;
+      const y=b.y+Math.cos(b.angle*2)*20;
+      ctx.beginPath();
+      ctx.arc(x,y,b.size,0,2*Math.PI);
+      ctx.fillStyle=`hsl(${b.hue},80%,70%)`;
+      ctx.fill();
+      if(x>W+15) b.x=-15;
+      else b.x = x;
+      if(y>H+15) b.y = 0;
+    });
+
+    // Gatinhos andando maiores e mais lentos
+    cats.forEach(c=>{
+      c.step += 1;
+      c.x += c.speed * c.direction;
+      if(c.x > W + 30) c.direction = -1;
+      if(c.x < -30) c.direction = 1;
+
+      // Corpo gato
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, c.size * 1.3, c.size, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Orelhas
+      ctx.fillStyle = '#444';
+      ctx.beginPath();
+      ctx.moveTo(c.x - c.size, c.y - c.size);
+      ctx.lineTo(c.x - c.size*0.5, c.y - c.size * 1.8);
+      ctx.lineTo(c.x - c.size*0.1, c.y - c.size * 0.8);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(c.x + c.size, c.y - c.size);
+      ctx.lineTo(c.x + c.size*0.5, c.y - c.size * 1.8);
+      ctx.lineTo(c.x + c.size*0.1, c.y - c.size * 0.8);
+      ctx.fill();
+    });
+
+    // Libélulas maiores e mais suaves
+    dragonflies.forEach(d=>{
+      d.angle += d.speed;
+      const x = d.x + Math.sin(d.angle) * 30;
+      const y = d.y + Math.cos(d.angle * 1.5) * 15;
+      ctx.fillStyle = `hsl(${d.hue}, 70%, 70%)`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, d.size*1.3, d.size*0.7, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Asinhas
+      ctx.fillStyle = `hsl(${d.hue}, 90%, 90%)`;
+      ctx.beginPath();
+      ctx.ellipse(x - d.size, y - d.size*0.7, d.size*0.5, d.size*0.2, 0, 0, 2 * Math.PI);
+      ctx.ellipse(x + d.size, y - d.size*0.7, d.size*0.5, d.size*0.2, 0, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+
+    // Vaga-lumes piscando maiores
+    fireflies.forEach(f=>{
+      f.brightness += f.flickerSpeed * (Math.random() > 0.5 ? 1 : -1);
+      if(f.brightness > 1) f.brightness = 1;
+      if(f.brightness < 0) f.brightness = 0;
+      ctx.fillStyle = `rgba(255, 255, 150, ${f.brightness})`;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.size, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+
+    if(phase==='forming' && particles.every(p=>p.stuck)){
+      phase='waiting';
+      startYes();
+      delayMsg = setTimeout(showMsg,15000);
+    }
+    if(phase==='waiting' && !finalState && !msgTimeout){
+      msgTimeout=setTimeout(()=>phase='fall',30000);
+    }
+    if(phase==='fall' && finalState!=='liked'){
+      for(let i=0;i<5;i++){
+        particles.push({
+          x:Math.random()*W,
+          y:-5,
+          vx:(Math.random()-0.5)*2,
+          vy:Math.random()*3+1,
+          stuck:false,
+          color:`hsl(${heartBase+Math.random()*20},90%,60%)`,
+          size:5
+        });
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener('resize',()=>{
+    W=canvas.width=window.innerWidth;
+    H=canvas.height=window.innerHeight;
+    init();
+  });
+
+  const audio = document.getElementById('audioBG');
+  window.addEventListener('load', () => {
+    audio.volume = 0.5;
+    audio.play().catch(() => {
+      document.body.addEventListener('click', () => audio.play(), {once:true});
+    });
+  });
+
+  document.getElementById('yesBtn').onclick=()=>{
+    clearTimeout(delayMsg);
+    finalState='liked'; 
+    phase='ended';
+    document.getElementById('messageBox').style.display='none';
+    startYes();
+    // Adiciona uma explosão extra de fogos quando clicar no sim
+    setInterval(createFireworks, 1500); // Fogos a cada 1.5 segundos para continuar a animação
+  };
+  document.getElementById('noBtn').onclick=()=>{
+    clearTimeout(delayMsg);
+    finalState='disliked'; 
+    phase='fall';
+    document.getElementById('messageBox').style.display='none';
+    [...heartParticles,textParticles].forEach(p=>{
+      p.stuck=false;
+      p.vx=(Math.random()-0.5)*15;
+      p.vy=(Math.random()-0.5)*15;
+    });
+  };
+
+  init();
+  animate();
+})();
+</script>
+
+</body>
+</html>
