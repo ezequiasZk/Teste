@@ -53,7 +53,10 @@
 </head>
 <body>
 
-<audio id="audioBG" autoplay loop preload="auto" src="https://www.bensound.com/bensound-music/bensound-sunny.mp3"></audio>
+<audio id="audioBG" autoplay loop preload="auto">
+  <source src="https://www.bensound.com/bensound-music/bensound-sunny.mp3" type="audio/mpeg">
+</audio>
+
 
 <canvas id="canvas"></canvas>
 
@@ -525,13 +528,20 @@
     init();
   });
 
-  const audio = document.getElementById('audioBG');
   window.addEventListener('load', () => {
-    audio.volume = 0.5;
-    audio.play().catch(() => {
-      document.body.addEventListener('click', () => audio.play(), {once:true});
+  const audio = document.getElementById('audioBG');
+  audio.volume = 0.5;
+  const playPromise = audio.play();
+
+  if (playPromise !== undefined) {
+    playPromise.catch(() => {
+      document.body.addEventListener('click', () => {
+        audio.play();
+      }, { once: true });
     });
-  });
+  }
+});
+
 
   document.getElementById('yesBtn').onclick=()=>{
     clearTimeout(delayMsg);
